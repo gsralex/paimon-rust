@@ -15,28 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
-mod error;
-pub use error::Error;
-pub use error::Result;
+//! REST API module for Paimon.
+//!
+//! This module provides REST API client, request, and response types.
 
-pub mod common;
-pub use common::{CatalogOptions, Options};
+pub mod auth;
+pub mod resource_paths;
+pub mod rest_api;
+pub mod rest_client;
+pub mod rest_error;
+pub mod rest_util;
 
-pub mod api;
-pub use api::rest_api::RESTApi;
+mod api_response;
 
-mod arrow;
-pub mod catalog;
-mod deletion_vector;
-pub mod file_index;
-pub mod io;
-pub mod spec;
-pub mod table;
+// Re-export response types
+pub use api_response::{
+    ConfigResponse, ErrorResponse, ListDatabasesResponse, PagedList, RESTResponse,
+};
 
-pub use catalog::Catalog;
-pub use catalog::FileSystemCatalog;
+// Re-export error types
+pub use rest_error::RestError;
 
-pub use table::{
-    DataSplit, DataSplitBuilder, DeletionFile, PartitionBucket, Plan, ReadBuilder, SnapshotManager,
-    Table, TableRead, TableScan,
+// Re-export utility types
+pub use resource_paths::ResourcePaths;
+pub use rest_util::RESTUtil;
+
+// Re-export auth types
+pub use auth::{
+    AuthProvider, AuthProviderFactory, BearerTokenAuthProvider, RESTAuthFunction, RESTAuthParameter,
 };
