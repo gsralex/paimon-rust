@@ -33,10 +33,12 @@
 //! let df = ctx.sql("SELECT * FROM my_table").await?;
 //! ```
 //!
-//! This version does not support write or predicate pushdown.
+//! This version supports partition predicate pushdown by extracting
+//! translatable partition-only conjuncts from DataFusion filters.
 
 mod catalog;
 mod error;
+mod filter_pushdown;
 mod physical_plan;
 mod schema;
 mod table;
