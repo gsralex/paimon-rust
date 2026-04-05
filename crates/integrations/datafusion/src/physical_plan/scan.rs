@@ -16,10 +16,8 @@
 // under the License.
 
 use std::any::Any;
-use std::pin::Pin;
 use std::sync::Arc;
 
-use datafusion::arrow::array::RecordBatch;
 use datafusion::arrow::datatypes::SchemaRef as ArrowSchemaRef;
 use datafusion::error::Result as DFResult;
 use datafusion::execution::{SendableRecordBatchStream, TaskContext};
@@ -27,7 +25,7 @@ use datafusion::physical_expr::EquivalenceProperties;
 use datafusion::physical_plan::execution_plan::{Boundedness, EmissionType};
 use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
 use datafusion::physical_plan::{DisplayAs, ExecutionPlan, Partitioning, PlanProperties};
-use futures::{Stream, StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt};
 use paimon::table::Table;
 use paimon::DataSplit;
 
@@ -128,7 +126,6 @@ impl ExecutionPlan for PaimonTableScan {
         let table = self.table.clone();
         let schema = self.schema();
         let projected_columns = self.projected_columns.clone();
-        let limit = self.limit;
 
         let fut = async move {
             let mut read_builder = table.new_read_builder();
@@ -148,31 +145,9 @@ impl ExecutionPlan for PaimonTableScan {
             ))
         };
 
-        let stream = futures::stream::once(fut).try_flatten();
-
-        // Enforce the final LIMIT at the DataFusion execution layer.
-        let limited_stream: Pin<Box<dyn Stream<Item = DFResult<RecordBatch>> + Send>> =
-            if let Some(limit) = limit {
-                let mut remaining = limit;
-                Box::pin(stream.try_filter_map(move |batch| {
-                    futures::future::ready(if remaining == 0 {
-                        Ok(None)
-                    } else if batch.num_rows() <= remaining {
-                        remaining -= batch.num_rows();
-                        Ok(Some(batch))
-                    } else {
-                        let limited_batch = batch.slice(0, remaining);
-                        remaining = 0;
-                        Ok(Some(limited_batch))
-                    })
-                }))
-            } else {
-                Box::pin(stream)
-            };
-
         Ok(Box::pin(RecordBatchStreamAdapter::new(
             self.schema(),
-            limited_stream,
+            futures::stream::once(fut).try_flatten(),
         )))
     }
 }
