@@ -20,7 +20,9 @@
 pub(crate) mod bin_pack;
 mod bucket_filter;
 mod commit_message;
+mod data_evolution_reader;
 pub mod data_evolution_writer;
+mod data_file_reader;
 mod data_file_writer;
 #[cfg(feature = "fulltext")]
 mod full_text_search_builder;
@@ -34,6 +36,7 @@ mod snapshot_manager;
 mod source;
 mod stats_filter;
 pub(crate) mod table_commit;
+mod table_read;
 mod table_scan;
 pub(crate) mod table_write;
 mod tag_manager;
@@ -46,7 +49,7 @@ pub use data_evolution_writer::DataEvolutionWriter;
 #[cfg(feature = "fulltext")]
 pub use full_text_search_builder::FullTextSearchBuilder;
 use futures::stream::BoxStream;
-pub use read_builder::{ReadBuilder, TableRead};
+pub use read_builder::ReadBuilder;
 pub use rest_env::RESTEnv;
 pub use schema_manager::SchemaManager;
 pub use snapshot_commit::{RESTSnapshotCommit, RenamingSnapshotCommit, SnapshotCommit};
@@ -55,6 +58,7 @@ pub use source::{
     merge_row_ranges, DataSplit, DataSplitBuilder, DeletionFile, PartitionBucket, Plan, RowRange,
 };
 pub use table_commit::TableCommit;
+pub use table_read::TableRead;
 pub use table_scan::TableScan;
 pub use table_write::TableWrite;
 pub use tag_manager::TagManager;
