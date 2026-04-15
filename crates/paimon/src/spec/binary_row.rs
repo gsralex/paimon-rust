@@ -95,6 +95,14 @@ impl BinaryRow {
         Ok(Self::from_bytes(arity, data[4..].to_vec()))
     }
 
+    /// Serialize this BinaryRow to bytes (arity prefix + data), the inverse of `from_serialized_bytes`.
+    pub fn to_serialized_bytes(&self) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(4 + self.data.len());
+        buf.extend_from_slice(&self.arity.to_be_bytes());
+        buf.extend_from_slice(&self.data);
+        buf
+    }
+
     pub fn arity(&self) -> i32 {
         self.arity
     }
@@ -623,11 +631,15 @@ pub fn extract_datum_from_arrow(
             Datum::Double(arr.value(row_idx))
         }
         DataType::Char(_) | DataType::VarChar(_) => {
-            let arr = col
-                .as_any()
-                .downcast_ref::<arrow_array::StringArray>()
-                .ok_or_else(|| type_mismatch_err("String", col_idx))?;
-            Datum::String(arr.value(row_idx).to_string())
+            if let Some(arr) = col.as_any().downcast_ref::<arrow_array::StringArray>() {
+                Datum::String(arr.value(row_idx).to_string())
+            } else if let Some(arr) = col.as_any().downcast_ref::<arrow_array::StringViewArray>() {
+                Datum::String(arr.value(row_idx).to_string())
+            } else if let Some(arr) = col.as_any().downcast_ref::<arrow_array::LargeStringArray>() {
+                Datum::String(arr.value(row_idx).to_string())
+            } else {
+                return Err(type_mismatch_err("String", col_idx));
+            }
         }
         DataType::Date(_) => {
             let arr = col

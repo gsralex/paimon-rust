@@ -20,6 +20,8 @@
 pub(crate) mod bin_pack;
 mod bucket_filter;
 mod commit_message;
+pub mod data_evolution_writer;
+mod data_file_writer;
 #[cfg(feature = "fulltext")]
 mod full_text_search_builder;
 pub(crate) mod global_index_scanner;
@@ -40,6 +42,7 @@ mod write_builder;
 use crate::Result;
 use arrow_array::RecordBatch;
 pub use commit_message::CommitMessage;
+pub use data_evolution_writer::DataEvolutionWriter;
 #[cfg(feature = "fulltext")]
 pub use full_text_search_builder::FullTextSearchBuilder;
 use futures::stream::BoxStream;
