@@ -177,14 +177,11 @@ impl TableCommit {
         partition: &HashMap<String, Option<Datum>>,
     ) -> Result<Predicate> {
         let pb = PredicateBuilder::new(&self.table.schema().partition_fields());
-        let predicates: Vec<Predicate> = partition
+        let fields: Vec<(&str, Option<Datum>)> = partition
             .iter()
-            .map(|(key, value)| match value {
-                Some(v) => pb.equal(key, v.clone()),
-                None => pb.is_null(key),
-            })
-            .collect::<Result<Vec<_>>>()?;
-        Ok(Predicate::and(predicates))
+            .map(|(key, value)| (key.as_str(), value.clone()))
+            .collect();
+        pb.partition_predicate(&fields)
     }
 
     /// Drop specific partitions (OVERWRITE with only deletes).
@@ -480,7 +477,8 @@ impl TableCommit {
                 None,
                 None,
                 None,
-            );
+            )
+            .with_scan_all_files();
             let current_entries = scan.plan_manifest_entries(snap).await?;
             for entry in current_entries {
                 entries.push(entry.with_kind(FileKind::Delete));
@@ -570,7 +568,8 @@ impl TableCommit {
         };
 
         // Read all current files from the latest snapshot.
-        let scan = TableScan::new(&self.table, None, vec![], None, None, None);
+        let scan =
+            TableScan::new(&self.table, None, vec![], None, None, None).with_scan_all_files();
         let existing_entries = scan.plan_manifest_entries(snap).await?;
 
         // Build index: (partition, bucket, first_row_id, row_count)
