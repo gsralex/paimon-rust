@@ -25,10 +25,65 @@ use std::fmt::{Display, Formatter};
 
 use crate::Result;
 
+/// Avro schema for IndexManifestEntry OCF serialization.
+///
+/// Must match the serde layout of `IndexManifestEntry`.
+///
+/// Note: `_FILE_SIZE` and `_ROW_COUNT` are declared as Avro `long` to match
+/// Java Paimon's schema, while the Rust `IndexFileMeta` fields are `i32`.
+/// `serde_avro_fast` transparently coerces between integer widths during
+/// serialization/deserialization, so the mismatch is intentional.
+pub const INDEX_MANIFEST_ENTRY_SCHEMA: &str = r#"{
+    "type": "record",
+    "name": "org.apache.paimon.avro.generated.record",
+    "fields": [
+        {"name": "_VERSION", "type": "int"},
+        {"name": "_KIND", "type": "int"},
+        {"name": "_PARTITION", "type": "bytes"},
+        {"name": "_BUCKET", "type": "int"},
+        {"name": "_INDEX_TYPE", "type": "string"},
+        {"name": "_FILE_NAME", "type": "string"},
+        {"name": "_FILE_SIZE", "type": "long"},
+        {"name": "_ROW_COUNT", "type": "long"},
+        {
+            "default": null,
+            "name": "_DELETIONS_VECTORS_RANGES",
+            "type": ["null", {
+                "type": "array",
+                "items": ["null", {
+                    "type": "record",
+                    "name": "org.apache.paimon.avro.generated.record__DELETIONS_VECTORS_RANGES",
+                    "fields": [
+                        {"name": "f0", "type": "string"},
+                        {"name": "f1", "type": "int"},
+                        {"name": "f2", "type": "int"},
+                        {"name": "_CARDINALITY", "type": ["null", "long"], "default": null}
+                    ]
+                }]
+            }]
+        },
+        {
+            "default": null,
+            "name": "_GLOBAL_INDEX",
+            "type": ["null", {
+                "type": "record",
+                "name": "org.apache.paimon.avro.generated.record__GLOBAL_INDEX",
+                "fields": [
+                    {"name": "_ROW_RANGE_START", "type": "long"},
+                    {"name": "_ROW_RANGE_END", "type": "long"},
+                    {"name": "_INDEX_FIELD_ID", "type": "int"},
+                    {"name": "_EXTRA_FIELD_IDS", "type": ["null", {"type": "array", "items": "int"}], "default": null},
+                    {"name": "_INDEX_META", "type": ["null", "bytes"], "default": null}
+                ]
+            }]
+        }
+    ]
+}"#;
+
 /// Manifest entry for index file.
 ///
 /// Impl Reference: <https://github.com/apache/paimon/blob/release-0.8.2/paimon-core/src/main/java/org/apache/paimon/manifest/IndexManifestEntry.java>
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IndexManifestEntry {
     #[serde(rename = "_KIND")]
     pub kind: FileKind,
@@ -80,6 +135,13 @@ impl IndexManifest {
             .deserialize::<IndexManifestEntry>()
             .collect::<std::result::Result<Vec<_>, _>>()
             .whatever_context::<_, crate::Error>("deserialize index manifest entry")
+    }
+
+    /// Write index manifest entries to a file.
+    pub async fn write(file_io: &FileIO, path: &str, entries: &[IndexManifestEntry]) -> Result<()> {
+        let bytes = crate::spec::to_avro_bytes(INDEX_MANIFEST_ENTRY_SCHEMA, entries)?;
+        let output = file_io.new_output(path)?;
+        output.write(bytes::Bytes::from(bytes)).await
     }
 }
 
